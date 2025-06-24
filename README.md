@@ -9,4 +9,4 @@ This project demonstrates how various spatial data structures organize and store
 ![K-D tree](./output/KDTree-0001.png)
 
 ### R-tree
-![R-tree](./output/QuadTree-0001.png)
+![R-tree](./output/RTree-0001.png)

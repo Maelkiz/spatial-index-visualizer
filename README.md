@@ -1,9 +1,7 @@
-# Spatial Index Visualizer
+## Spatial Index Visualizer
 
-## About
 This project demonstrates how various spatial data structures organize and store spatial information.
 
-## Images
 ### Quadtree
 ![Quadtree](./output/QuadTree-0001.png)
 

@@ -1,5 +1,5 @@
 ## About
-This project showcases how different spatial datastructures organize and store spatial data.
+This project demonstrates how various spatial data structures organize and store spatial information.
 
 ## Images
 ![Quadtree](./output/QuadTree-0001.png)

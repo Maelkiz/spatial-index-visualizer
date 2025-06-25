@@ -1,10 +1,8 @@
 import processing.core.PApplet;
-import java.io.File;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class SpatialIndexVisualizer extends PApplet {
     private SpatialIndex<SpatialObject> spatialIndex;
+    private int numObjects = 2500;
 
     public static void main(String[] args) {
         PApplet.main("SpatialIndexVisualizer");
@@ -17,7 +15,7 @@ public class SpatialIndexVisualizer extends PApplet {
 
     @Override
     public void setup() {
-        spatialIndex = buildSpatialIndex(new QuadTree<>(0, 0, width, height), 2500);
+        spatialIndex = buildSpatialIndex(new QuadTree<>(0, 0, width, height), numObjects);
         keyRepeatEnabled = true;
     }
 
@@ -30,22 +28,17 @@ public class SpatialIndexVisualizer extends PApplet {
     @Override
     public void keyPressed() {
         if (key == 's') {
-            int saveIdx = findHighestIndex() + 1;
-            String idx = nf(saveIdx, 4);
-            String base = spatialIndex.getClass().getSimpleName();
-            saveFrame("output/" + base + "-" + idx + ".png");
-            println("Saved: " + base + "-" + idx + ".png");
-            saveIdx++;
+            Util.saveFrame(this, spatialIndex.getClass().getSimpleName());
         }
 
         if (key == '1') {
-            spatialIndex = buildSpatialIndex(new QuadTree<>(0, 0, width, height), 1000);
+            spatialIndex = buildSpatialIndex(new QuadTree<>(0, 0, width, height), numObjects);
         }
         if (key == '2') {
-            spatialIndex = buildSpatialIndex(new KDTree<>(), 1000);
+            spatialIndex = buildSpatialIndex(new KDTree<>(), numObjects);
         }
         if (key == '3') {
-            spatialIndex = buildSpatialIndex(new RTree<>(), 1000);
+            spatialIndex = buildSpatialIndex(new RTree<>(), numObjects);
         }
     }
 
@@ -61,7 +54,8 @@ public class SpatialIndexVisualizer extends PApplet {
             float noiseValue = noise(seedX * scale, seedY * scale);
 
             if (noiseValue > 0.5f) {
-                SpatialObject object = createSpatialObject(seedX, seedY);
+                SpatialObject object = new Point(seedX, seedY);
+                //SpatialObject object = new Rectangle(seedX, seedY, random(10, 50), random(10, 50));
                 spatialIndex.insert(object);
             }
         }
@@ -69,29 +63,4 @@ public class SpatialIndexVisualizer extends PApplet {
         return spatialIndex;
     }
 
-    private SpatialObject createSpatialObject(float x, float y) {
-        return new Rectangle(x, y, random(10, 50), random(10, 50));
-    }
-
-
-
-    private int findHighestIndex() {
-        String base = spatialIndex.getClass().getSimpleName();
-        File dir = new File(sketchPath("output"));
-        File[] files = dir.listFiles();
-        if (files == null)
-            return 0;
-
-        Pattern p = Pattern.compile(Pattern.quote(base) + "-(\\d{4})\\.png");
-        int max = 0;
-        for (File f : files) {
-            Matcher m = p.matcher(f.getName());
-            if (m.matches()) {
-                int v = Integer.parseInt(m.group(1));
-                if (v > max)
-                    max = v;
-            }
-        }
-        return max;
-    }
 }

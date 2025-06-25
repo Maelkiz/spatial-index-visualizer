@@ -3,45 +3,46 @@ import java.util.List;
 
 import processing.core.PApplet;
 
-public class QuadTree implements SpatialIndex {
+public class QuadTree<T extends SpatialObject> implements SpatialIndex<T> {
     private final int MAX_POINTS = 4;
     private final float x, y, width, height;
-    private final QuadTree[] quadrants;
-    private final List<Point> points;
+    private final QuadTree<T>[] quadrants;
+    private final List<T> objects;
 
+    @SuppressWarnings("unchecked")
     public QuadTree(float x, float y, float width, float height) {
         this.x = x;
         this.y = y;
         this.width = width;
         this.height = height;
-        this.quadrants = new QuadTree[4];
-        this.points = new ArrayList<>();
+        this.quadrants = (QuadTree<T>[]) new QuadTree[4];
+        this.objects = new ArrayList<>();
     }
 
-    public void query(Rectangle range, List<Point> found) {
+    public void query(Rectangle range, List<T> found) {
         if (!intersects(range))
             return;
 
-        for (Point p : points) {
-            if (range.contains(p)) {
-                found.add(p);
+        for (T object : objects) {
+            if (range.contains(object.x(), object.y())) {
+                found.add(object);
             }
         }
 
         if (quadrants[0] != null) {
-            for (QuadTree child : quadrants) {
+            for (QuadTree<T> child : quadrants) {
                 child.query(range, found);
             }
         }
     }
 
-    public void insert(Point point) {
-        if (!contains(point)) {
+    public void insert(T object) {
+        if (!contains(object)) {
             return;
         }
 
-        if (points.size() < MAX_POINTS) {
-            points.add(point);
+        if (objects.size() < MAX_POINTS) {
+            objects.add(object);
             return;
         }
 
@@ -49,8 +50,8 @@ public class QuadTree implements SpatialIndex {
             subdivide();
         }
 
-        for (QuadTree child : quadrants) {
-            child.insert(point);
+        for (QuadTree<T> child : quadrants) {
+            child.insert(object);
         }
     }
 
@@ -58,17 +59,17 @@ public class QuadTree implements SpatialIndex {
         float halfWidth = width / 2;
         float halfHeight = height / 2;
 
-        quadrants[0] = new QuadTree(x, y, halfWidth, halfHeight); // Top-left
-        quadrants[1] = new QuadTree(x + halfWidth, y, halfWidth, halfHeight); // Top-right
-        quadrants[2] = new QuadTree(x, y + halfHeight, halfWidth, halfHeight); // Bottom-left
-        quadrants[3] = new QuadTree(x + halfWidth, y + halfHeight, halfWidth, halfHeight); // Bottom-right
+        quadrants[0] = new QuadTree<>(x, y, halfWidth, halfHeight); // Top-left
+        quadrants[1] = new QuadTree<>(x + halfWidth, y, halfWidth, halfHeight); // Top-right
+        quadrants[2] = new QuadTree<>(x, y + halfHeight, halfWidth, halfHeight); // Bottom-left
+        quadrants[3] = new QuadTree<>(x + halfWidth, y + halfHeight, halfWidth, halfHeight); // Bottom-right
     }
 
-    public boolean contains(Point point) {
-        return point.x() >= x
-                && point.x() <= x + width
-                && point.y() >= y
-                && point.y() <= y + height;
+    public boolean contains(T object) {
+        return object.x() >= x
+                && object.x() <= x + width
+                && object.y() >= y
+                && object.y() <= y + height;
     }
 
     private boolean intersects(Rectangle range) {
@@ -82,12 +83,12 @@ public class QuadTree implements SpatialIndex {
         p.stroke(255, 0, 0);
         p.noFill();
         p.rect(x, y, width, height);
-        for (Point point : points) {
+        for (T object : objects) {
             p.fill(255, 0, 0);
-            point.draw(p);
+            object.draw(p);
         }
         if (quadrants[0] != null) {
-            for (QuadTree child : quadrants) {
+            for (QuadTree<T> child : quadrants) {
                 child.draw(p);
             }
         }

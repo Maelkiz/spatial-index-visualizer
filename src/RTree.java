@@ -3,7 +3,7 @@ import java.util.List;
 
 import processing.core.PApplet;
 
-public class RTree implements SpatialIndex {
+public class RTree<T extends SpatialObject> implements SpatialIndex<T> {
     private static final int MAX_ENTRIES = 4;
     private static final int MIN_ENTRIES = MAX_ENTRIES / 2;
 
@@ -13,9 +13,8 @@ public class RTree implements SpatialIndex {
         this.root = new LeafNode();
     }
 
-    public void insert(Point point) {
-        Rectangle mbr = new Rectangle(point.x(), point.y(), 0, 0);
-        Entry entry = new Entry(mbr, point);
+    public void insert(T object) {
+        Entry<T> entry = new Entry<>(object);
         Split split = root.insert(entry);
         if (split != null) {
             // Create new root
@@ -27,29 +26,29 @@ public class RTree implements SpatialIndex {
         }
     }
 
-    public List<Point> search(Rectangle range) {
-        List<Point> results = new ArrayList<>();
+    public List<T> search(Rectangle range) {
+        List<T> results = new ArrayList<>();
         root.search(range, results);
         return results;
     }
 
-    private abstract static class Node {
+    private abstract class Node {
         Rectangle mbr;
 
-        abstract Split insert(Entry entry);
+        abstract Split insert(Entry<T> entry);
 
-        abstract void search(Rectangle range, List<Point> results);
+        abstract void search(Rectangle range, List<T> results);
 
         abstract void recalculateMBR();
 
-        abstract List<Entry> getEntries();
+        abstract List<Entry<T>> getEntries();
     }
 
-    private static class LeafNode extends Node {
-        List<Entry> entries = new ArrayList<>();
+    private class LeafNode extends Node {
+        List<Entry<T>> entries = new ArrayList<>();
 
         @Override
-        Split insert(Entry entry) {
+        Split insert(Entry<T> entry) {
             entries.add(entry);
             if (mbr == null) {
                 mbr = entry.mbr;
@@ -64,12 +63,12 @@ public class RTree implements SpatialIndex {
         }
 
         @Override
-        void search(Rectangle range, List<Point> results) {
+        void search(Rectangle range, List<T> results) {
             if (!mbr.intersects(range))
                 return;
-            for (Entry e : entries) {
-                if (range.contains(e.point)) {
-                    results.add(e.point);
+            for (Entry<T> e : entries) {
+                if (range.intersects(e.mbr)) {
+                    results.add(e.object);
                 }
             }
         }
@@ -77,13 +76,13 @@ public class RTree implements SpatialIndex {
         @Override
         void recalculateMBR() {
             mbr = null;
-            for (Entry e : entries) {
+            for (Entry<T> e : entries) {
                 mbr = (mbr == null) ? e.mbr : combine(mbr, e.mbr);
             }
         }
 
         @Override
-        List<Entry> getEntries() {
+        List<Entry<T>> getEntries() {
             return entries;
         }
 
@@ -91,14 +90,14 @@ public class RTree implements SpatialIndex {
             // Linear split
             int n = entries.size();
             // pick seeds
-            Entry[] seed = pickSeeds(entries);
+            Entry<T>[] seed = pickSeeds(entries);
             LeafNode left = new LeafNode();
             LeafNode right = new LeafNode();
             left.addEntry(seed[0]);
             right.addEntry(seed[1]);
 
             // distribute rest
-            for (Entry e : entries) {
+            for (Entry<T> e : entries) {
                 if (e == seed[0] || e == seed[1])
                     continue;
                 if (left.entries.size() + (n - left.entries.size() - right.entries.size()) == MIN_ENTRIES) {
@@ -123,17 +122,17 @@ public class RTree implements SpatialIndex {
             return new Split(left, right);
         }
 
-        private void addEntry(Entry e) {
+        private void addEntry(Entry<T> e) {
             entries.add(e);
             mbr = (mbr == null) ? e.mbr : combine(mbr, e.mbr);
         }
     }
 
-    private static class InternalNode extends Node {
+    private class InternalNode extends Node {
         List<Node> children = new ArrayList<>();
 
         @Override
-        Split insert(Entry entry) {
+        Split insert(Entry<T> entry) {
             if (children.isEmpty()) {
                 // No child yet: create a leaf to hold this entry
                 LeafNode leaf = new LeafNode();
@@ -165,7 +164,7 @@ public class RTree implements SpatialIndex {
         }
 
         @Override
-        void search(Rectangle range, List<Point> results) {
+        void search(Rectangle range, List<T> results) {
             if (!mbr.intersects(range))
                 return;
             for (Node c : children) {
@@ -182,7 +181,7 @@ public class RTree implements SpatialIndex {
         }
 
         @Override
-        List<Entry> getEntries() {
+        List<Entry<T>> getEntries() {
             return new ArrayList<>(); // Internal nodes do not have entries
         }
 
@@ -226,17 +225,17 @@ public class RTree implements SpatialIndex {
         }
     }
 
-    private static class Entry {
+    private static class Entry<T extends SpatialObject> {
         Rectangle mbr;
-        Point point;
+        T object;
 
-        Entry(Rectangle mbr, Point point) {
-            this.mbr = mbr;
-            this.point = point;
+        Entry(T object) {
+            this.mbr = object.getAABB();
+            this.object = object;
         }
     }
 
-    private static class Split {
+    private class Split {
         Node left;
         Node right;
 
@@ -247,7 +246,7 @@ public class RTree implements SpatialIndex {
     }
 
     /* Helpers */
-    private static Rectangle combine(Rectangle a, Rectangle b) {
+    private Rectangle combine(Rectangle a, Rectangle b) {
         if (a == null)
             return b;
         if (b == null)
@@ -259,17 +258,18 @@ public class RTree implements SpatialIndex {
         return new Rectangle(x1, y1, x2 - x1, y2 - y1);
     }
 
-    private static float area(Rectangle r) {
+    private float area(Rectangle r) {
         return r == null ? 0 : r.width() * r.height();
     }
 
-    private static float enlargement(Rectangle r, Rectangle toAdd) {
+    private float enlargement(Rectangle r, Rectangle toAdd) {
         Rectangle combined = combine(r, toAdd);
         return area(combined) - area(r);
     }
 
-    private static Entry[] pickSeeds(List<Entry> entries) {
-        Entry seed1 = null, seed2 = null;
+    @SuppressWarnings("unchecked")
+    private Entry<T>[] pickSeeds(List<Entry<T>> entries) {
+        Entry<T> seed1 = null, seed2 = null;
         float worst = -1;
         int n = entries.size();
         for (int i = 0; i < n; i++) {
@@ -284,10 +284,11 @@ public class RTree implements SpatialIndex {
                 }
             }
         }
-        return new Entry[] { seed1, seed2 };
+        return (Entry<T>[]) new Entry[] { seed1, seed2 };
     }
 
-    private static Node[] pickSeedsNode(List<Node> nodes) {
+    @SuppressWarnings("unchecked")
+    private Node[] pickSeedsNode(List<Node> nodes) {
         Node seed1 = null, seed2 = null;
         float worst = -1;
         int n = nodes.size();
@@ -303,7 +304,10 @@ public class RTree implements SpatialIndex {
                 }
             }
         }
-        return new Node[] { seed1, seed2 };
+        Node[] result = new RTree.Node[2]; // Unsafe cast, but safe in context
+        result[0] = seed1;
+        result[1] = seed2;
+        return result;
     }
 
     @Override
@@ -313,8 +317,8 @@ public class RTree implements SpatialIndex {
     }
 
     private void drawNode(PApplet p, Node node, int depth) {
-        for (Entry entry : node.getEntries()) {
-            entry.point.draw(p);
+        for (Entry<T> entry : node.getEntries()) {
+            entry.object.draw(p);
         }
 
         p.stroke(255, 0, 0);
